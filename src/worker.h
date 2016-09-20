@@ -28,6 +28,22 @@ class Worker : public ps::App{
 	    virtual bool Run(){
 	        Process();
 	    }
+        void save_model(){
+            const char *file = "model_ps.txt";
+            std::ofstream md;
+            md.open(file);
+            if(!md.is_open()) std::cout<<"open file error!"<<std::endl;
+            std::set<long int>::iterator iter;
+            for(iter = data->feaIdx.begin(); iter != data->feaIdx.end(); iter++){
+                    fea_all.push_back(*iter);
+            }
+            std::cout<<"feaIdx size = "<<data->feaIdx.size()<<std::endl;
+            kv_.Wait(kv_.Pull(fea_all, &w_all));
+            for(int i = 0; i < fea_all.size(); i++){
+                    md << fea_all[i]<<"\t"<<w_all[i]<<std::endl;
+            }
+            md.close();
+        }
 
         virtual void Process(){
 	        rank = ps::MyRank();
@@ -66,17 +82,9 @@ class Worker : public ps::App{
 		            kv_.Wait(kv_.Push(mb_keys, mb_g));
                 }//end for minibatch
             }//end for
-
-	        std::set<long int>::iterator iter;
-	        for(iter = data->feaIdx.begin(); iter != data->feaIdx.end(); iter++){
-		        fea_all.push_back(*iter);	
-	        }
-	        std::cout<<"feaIdx size = "<<data->feaIdx.size()<<std::endl;
-	        kv_.Wait(kv_.Pull(fea_all, &w_all));
-	        for(int i = 0; i < fea_all.size(); i++){
-                continue;
-	        }
+            save_model();
         }//end process
+
     public:
         std::vector<ps::Key> fea_all;
         std::vector<float> w_all;	
