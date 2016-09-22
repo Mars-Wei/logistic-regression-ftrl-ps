@@ -6,7 +6,7 @@ Distributed LR With Parameter Server
 
 step 1. in the fold of logistic-regression-ftrl-ps 
 
-    cd /repo/ps-lite
+    cd ps-lite
 
     cp third_party/* .
 
@@ -14,7 +14,7 @@ step 1. in the fold of logistic-regression-ftrl-ps
 
 step 2.
 
-    cd /repo/dmlc-core
+    cd dmlc-core
 
     make
 
