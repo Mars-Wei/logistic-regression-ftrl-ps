@@ -1,15 +1,15 @@
 #!/bin/bash
 CPP = g++
 CPP_tag = -std=c++11
-DEPS_PATH = ./repo/ps-lite/deps 
-INCLUDE = -I./repo/ps-lite/src -I./repo/ps-lite/deps/include -I./repo/dmlc-core/include/dmlc
+DEPS_PATH = ./ps-lite/deps 
+INCLUDE = -I./ps-lite/src -I./ps-lite/deps/include -I./dmlc-core/include/dmlc
 
 #LDFLAGS = $(addprefix $(DEPS_PATH)/lib/, libglog.a libprotobuf.a libgflags.a libzmq.a libcityhash.a liblz4.a)
-LDFLAGS = ./repo/ps-lite/build/libps.a ./repo/dmlc-core/libdmlc.a ./repo/ps-lite/deps/lib/libglog.a ./repo/ps-lite/deps/lib/libprotobuf.a ./repo/ps-lite/deps/lib/libgflags.a ./repo/ps-lite/deps/lib/libzmq.a ./repo/ps-lite/deps/lib/libcityhash.a ./repo/ps-lite/deps/lib/liblz4.a -lpthread
+LDFLAGS = ./ps-lite/build/libps.a ./dmlc-core/libdmlc.a ./ps-lite/deps/lib/libglog.a ./ps-lite/deps/lib/libprotobuf.a ./ps-lite/deps/lib/libgflags.a ./ps-lite/deps/lib/libzmq.a ./ps-lite/deps/lib/libcityhash.a ./ps-lite/deps/lib/liblz4.a -lpthread
 
-all: train
+all: ps_lr_ftrl
 
-train: main.o $(LDFLAGS)
+ps_lr_ftrl: main.o $(LDFLAGS)
 	$(CPP) $(CPP_tag) -o $@ $^ $(INCLUDE)
 
 main.o: src/main.cpp
