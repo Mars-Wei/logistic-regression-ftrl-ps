@@ -9,7 +9,7 @@ namespace ps{
     NodeInfo n;
     if(n.IsWorker()){
 	std::cout<<"create worker~"<<std::endl;
-        return new ::dmlc::linear::Worker(argv[1]);
+        return new ::dmlc::linear::Worker(argv[1], argv[2]);
     }else if(n.IsServer()){
 	std::cout<<"create server~"<<std::endl;
         return new ::dmlc::linear::Server();

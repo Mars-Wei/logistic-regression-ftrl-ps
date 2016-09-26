@@ -7,9 +7,11 @@ namespace linear{
 
 class Worker : public ps::App{
     public:
-        Worker(const char *filepath) : file_path(filepath){ }
+        Worker(const char *train_file, const char *test_file) : 
+                train_file_path(train_file), test_file_path(test_file){ }
         ~Worker(){
-            delete data;
+            delete train_data;
+            //delete test_data;
         } 
 
         virtual void ProcessRequest(ps::Message* request){
@@ -28,76 +30,140 @@ class Worker : public ps::App{
 	    virtual bool Run(){
 	        Process();
 	    }
-        void save_model(){
-            const char *file = "model_ps.txt";
+        void save_model(int st){
+            char buffer[1024];
+            snprintf(buffer, 1024, "%d", st);
+            std::string filename = buffer;
             std::ofstream md;
-            md.open(file);
+            md.open("model/model_" + filename + ".txt");
             if(!md.is_open()) std::cout<<"open file error!"<<std::endl;
-            std::set<long int>::iterator iter;
-            for(iter = data->feaIdx.begin(); iter != data->feaIdx.end(); iter++){
-                    fea_all.push_back(*iter);
-            }
-            std::cout<<"feaIdx size = "<<data->feaIdx.size()<<std::endl;
-            kv_.Wait(kv_.Pull(fea_all, &w_all));
+            //std::set<long int>::iterator iter;
+            //for(iter = train_data->feaIdx.begin(); iter != train_data->feaIdx.end(); iter++){
+            //    fea_all.push_back(*iter);
+            //}
+            std::cout<<"feaIdx size = "<<train_data->feaIdx.size()<<std::endl;
+            //kv_.Wait(kv_.Pull(fea_all, &w_all));
+            kv_.Wait(kv_.Pull(init_index, &w_all));
             for(int i = 0; i < fea_all.size(); i++){
                     md << fea_all[i]<<"\t"<<w_all[i]<<std::endl;
             }
             md.close();
         }
+        
+        void predict(int st){
+           char buffer[1024];
+           snprintf(buffer, 1024, "%d", st);
+           std::string filename = buffer;
+           std::ofstream md;
+           md.open("pred_" + filename + ".txt");
+           if(!md.is_open()) std::cout<<"open pred file failure!"<<std::endl;
+           std::cout<<"test_data size = "<<test_data->fea_matrix.size()<<std::endl;
+           for(int i = 0; i < test_data->fea_matrix.size(); i++) {
+               float x = 0.0;
+               for(int j = 0; j < test_data->fea_matrix[i].size(); j++) {
+                   long index = test_data->fea_matrix[i][j].idx;
+                   int value = test_data->fea_matrix[i][j].val;
+                   x += w_all[index] * value;
+               }
+               double pctr;
+               if(x < -30){
+                       pctr = 1e-6;
+               }
+               else if(x > 30){
+                       pctr = 1.0;
+               }
+               else{
+                       double ex = pow(2.718281828, x);
+                       pctr = ex / (1.0 + ex);
+               }
+
+               md<<pctr<<"\t"<<1 - test_data->label[i]<<"\t"<<test_data->label[i]<<std::endl;
+           }
+           md.close();
+        }
+
+        void batch_gradient_calculate(int &row){
+            int index = 0; float value = 0.0; float pctr = 0;
+            for(int line = 0; line < batch_size; line++){
+                if(row >= train_data->fea_matrix.size()) break;
+                std::vector<float> g;
+                std::vector<ps::Key> keys;
+                std::vector<float> values;
+                std::vector<float> w;
+                for(int j = 0; j < train_data->fea_matrix[row].size(); j++){//for one instance
+                    index = train_data->fea_matrix[row][j].idx;
+                    keys.push_back(index);
+                    value = train_data->fea_matrix[row][j].val;
+                    values.push_back(value);
+                }
+                kv_.Wait(kv_.Pull(keys, &w));
+                float wx = bias;
+                for(int j = 0; j < w.size(); j++){
+                    wx += w[j] * values[j];
+                }
+                pctr = sigmoid(wx);
+                g.resize(keys.size());
+                float delta = pctr - train_data->label[row];
+                for(int j = 0; j < keys.size(); j++){
+                    g[j] = delta * values[j];
+                }
+                kv_.Wait(kv_.Push(keys, g));
+                row++;
+            }
+        }
 
         virtual void Process(){
 	        rank = ps::MyRank();
-            snprintf(data_path, 1024, "%s-%05d", file_path, rank);
-            data = new Load_Data(data_path);
+            snprintf(train_data_path, 1024, "%s-%05d", train_file_path, rank);
+            train_data = new Load_Data(train_data_path);
+            train_data->load_all_data();
+            std::cout<<"rank = "<<rank<<" fea_matrix size = "<<train_data->fea_matrix.size()<<std::endl;
 
-            std::cout<<"i am rank "<<rank<<std::endl;
+            //std::vector<ps::Key> init_index;
+            init_index.clear();
+            for(int i = 0; i < 1e8; i++){
+                init_index.push_back(i);
+            }
+            std::vector<float> init_val(1e8, 0.0);
+            kv_.Wait(kv_.Push(init_index, init_val));
+
             for(int i = 0; i < step; i++){
-                data->load_data_minibatch(10);
-	            if(data->fea_matrix.size() == 0) break;
-                std::vector<float> mb_w;
-                std::vector<float> mb_g;
-                std::vector<ps::Key> mb_keys;
-                std::vector<float> mb_values;
-                for(int i = 0; i < data->fea_matrix.size(); i++){
-                    mb_keys.clear(); mb_values.clear();
-                    float wx = bias;
-                    for(int j = 0; j < data->fea_matrix[i].size(); j++){
-                        long int index = data->fea_matrix[i][j].idx;
-                        mb_keys.push_back(index);
-                        float value = data->fea_matrix[i][j].val;
-                        mb_values.push_back(value);
-                    }
-                    kv_.Wait(kv_.Pull(mb_keys, &mb_w));
-                    for(int j = 0; j < mb_w.size(); j++){
-                        wx += mb_w[j] * mb_values[j];
-                    }
-                    float pctr = sigmoid(wx);
-                    mb_g.resize(mb_keys.size());
-                    for(int j = 0; j < mb_keys.size(); j++){
-                        mb_g[j] += (pctr - data->label[i]) * mb_values[j];
-                    }
-                    for(int j = 0; j < mb_g.size(); j++){
-                        mb_g[j] /= 10;
-                    }
-		            kv_.Wait(kv_.Push(mb_keys, mb_g));
+                int row = 0;
+                while(row < train_data->fea_matrix.size()){
+                    batch_gradient_calculate(row);
+                    if(row % 20000 == 0) std::cout<<"row = "<<row<<std::endl;
                 }//end for minibatch
             }//end for
-            save_model();
+            if(rank == 0){
+                std::cout<<"end"<<std::endl;
+                save_model(step);
+                snprintf(test_data_path, 1024, "%s-%05d", test_file_path, rank);
+                std::cout<<" test data_path======================"<<test_data_path<<std::endl;
+                test_data = new Load_Data(test_data_path);
+                test_data->load_all_data();
+
+                predict(step);
+            }
         }//end process
 
     public:
+        std::vector<ps::Key> init_index;
         std::vector<ps::Key> fea_all;
         std::vector<float> w_all;	
-        Load_Data *data;
-        const char *file_path;
-        char data_path[1024];
+        Load_Data *train_data;
+        Load_Data *test_data;
+        const char *train_file_path;
+        const char *test_file_path;
+        char train_data_path[1024];
+        char test_data_path[1024];
+        int batch_size = 300;
         int rank;
-        float bias = 0.1;
-        float alpha = 1.0;
+        float bias = 0.0;
+        float alpha = 0.1;
         float beta = 1.0;
-        float lambda1 = 0.0;
-        float lambda2 = 1.0;
-        int step = 1000;
+        float lambda1 = 0.001;
+        float lambda2 = 0.0;
+        int step = 2;
         ps::KVWorker<float> kv_;
 };//end class worker
 

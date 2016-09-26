@@ -23,9 +23,9 @@ namespace linear{
     }
 
     struct FTRLEntry{
-        float w = 0;
-        float z = 0;
-        float sq_cum_grad = 0;
+        float w = 0.0;
+        float z = 0.0;
+        float sq_cum_grad = 0.0;
         inline void Load(Stream *fi) { }//must has
         inline void Save(Stream *fo) const {
 	        TSave(fo, this); 

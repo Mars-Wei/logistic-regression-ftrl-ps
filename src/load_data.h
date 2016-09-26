@@ -26,10 +26,12 @@ public:
     long int index;
     std::set<long int> feaIdx;    
     std::set<long int>::iterator setIter;
+    long int loc_fea_dim = 0;
+    long int glo_fea_dim = 0;
 
     Load_Data(const char * file_name){
-	fin_.open(file_name, std::ios::in);
-	if(!fin_.is_open()) {
+	    fin_.open(file_name, std::ios::in);
+	    if(!fin_.is_open()) {
             std::cout << " open file error: " << file_name << std::endl;
             exit(1);
         }
@@ -41,10 +43,32 @@ public:
 
     void load_data_minibatch(const int num){
         fea_matrix.clear();
-	//std::cout<<"load batch data start..."<<std::endl;
     	for(int i = 0; i < num; i++){
             std::getline(fin_, line);
-	    if(fin_.eof()) break;
+            if(fin_.eof()) break;
+            key_val.clear();
+            const char *pline = line.c_str();
+            if(sscanf(pline, "%d%n", &y, &nchar) >= 1){
+                    pline += nchar;
+                    label.push_back(y);
+                    while(sscanf(pline, "%ld:%d%n", &index, &value, &nchar) >= 2){
+                            pline += nchar;
+                            sf.idx = index;
+                            setIter = feaIdx.find(index);
+                            if(setIter == feaIdx.end()) feaIdx.insert(index);
+                            sf.val = value;
+                            key_val.push_back(sf);
+                    }
+            }
+            fea_matrix.push_back(key_val);
+	    }//end for
+    }//end load_data_minibatch
+
+    void load_all_data(){
+        fea_matrix.clear();
+        while(!fin_.eof()){
+            std::getline(fin_, line);
+            if(fin_.eof()) break;
             key_val.clear();
             const char *pline = line.c_str();
             if(sscanf(pline, "%d%n", &y, &nchar) >= 1){
@@ -53,15 +77,15 @@ public:
                 while(sscanf(pline, "%ld:%d%n", &index, &value, &nchar) >= 2){
                     pline += nchar;
                     sf.idx = index;
-		    setIter = feaIdx.find(index);
-		    if(setIter == feaIdx.end()) feaIdx.insert(index);
+                    setIter = feaIdx.find(index);
+                    if(setIter == feaIdx.end()) feaIdx.insert(index);
                     sf.val = value;
                     key_val.push_back(sf);
                 }
             }
             fea_matrix.push_back(key_val);
-	}//end for
-    }
+        }
+    }//end load_all_data
 
 };
 
