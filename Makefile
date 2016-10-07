@@ -7,9 +7,9 @@ INCLUDE = -I./ps-lite/src -I./ps-lite/deps/include -I./dmlc-core/include/dmlc
 #LDFLAGS = $(addprefix $(DEPS_PATH)/lib/, libglog.a libprotobuf.a libgflags.a libzmq.a libcityhash.a liblz4.a)
 LDFLAGS = ./ps-lite/build/libps.a ./dmlc-core/libdmlc.a ./ps-lite/deps/lib/libglog.a ./ps-lite/deps/lib/libprotobuf.a ./ps-lite/deps/lib/libgflags.a ./ps-lite/deps/lib/libzmq.a ./ps-lite/deps/lib/libcityhash.a ./ps-lite/deps/lib/liblz4.a -lpthread
 
-all: ps_lr_ftrl
+all: lr_ftrl_ps
 
-ps_lr_ftrl: main.o $(LDFLAGS)
+lr_ftrl_ps: main.o $(LDFLAGS)
 	$(CPP) $(CPP_tag) -o $@ $^ $(INCLUDE)
 
 main.o: src/main.cpp
